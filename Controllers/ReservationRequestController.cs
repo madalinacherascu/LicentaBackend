@@ -23,8 +23,20 @@ namespace LicentaBackend.Controllers
         {
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
+            // Verificăm dacă există o altă rezervare activă pentru aceeași cabană care se suprapune
+            bool alreadyReserved = await _context.ReservationRequests.AnyAsync(r =>
+     r.CabinId == reservation.CabinId &&
+     reservation.CheckIn < r.CheckOut &&
+     reservation.CheckOut > r.CheckIn
+ );
 
-           
+            if (alreadyReserved)
+                return Conflict(new { message = "Cabana este deja rezervată în perioada selectată." });
+
+
+
+
+
             Random rnd = new Random();
             reservation.AccessPin = rnd.Next(1000, 10000).ToString();
 
@@ -32,7 +44,16 @@ namespace LicentaBackend.Controllers
             _context.ReservationRequests.Add(reservation);
             await _context.SaveChangesAsync();
 
-            
+            var cabin = await _context.Cabin.FindAsync(reservation.CabinId);
+            if (cabin != null)
+            {
+                cabin.CheckIn = reservation.CheckIn;
+                cabin.CheckOut = reservation.CheckOut;
+                _context.Cabin.Update(cabin);
+                await _context.SaveChangesAsync();
+            }
+
+
             var tempFilePath = Path.Combine(Path.GetTempPath(), "pins_arduino.txt");
             await System.IO.File.AppendAllTextAsync(tempFilePath, reservation.AccessPin + Environment.NewLine);
 
@@ -68,6 +89,7 @@ namespace LicentaBackend.Controllers
 
             return Ok(pinuri); 
         }
+
 
     }
 }

@@ -18,5 +18,7 @@ namespace LicentaBackend.Models
         public int CabinBedrooms { get; set; }
         public decimal CabinPrice { get; set; }
         public string? AccessPin { get; set; }
+        public DateTime CheckIn { get; set; }
+        public DateTime CheckOut { get; set; }
     }
 }

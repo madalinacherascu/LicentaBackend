@@ -3,6 +3,9 @@ using LicentaBackend.Models;
 using LicentaBackend.Filters;
 using Microsoft.EntityFrameworkCore;
 using LicentaBackend.DTO;
+using Microsoft.Data.SqlClient;
+
+using static Org.BouncyCastle.Math.EC.ECCurve;
 
 namespace LicentaBackend.Controllers
 {
@@ -11,10 +14,12 @@ namespace LicentaBackend.Controllers
     public class CabinsController : ControllerBase
     {
         private readonly AppDataBaseContext _context;
+        private readonly IConfiguration _config;
 
-        public CabinsController(AppDataBaseContext context)
+        public CabinsController(AppDataBaseContext context, IConfiguration config )
         {
             _context = context;
+            _config = config;
         }
         [HttpGet]
         public async Task<ActionResult<IEnumerable<CabinListDto>>> Get()
@@ -35,33 +40,51 @@ namespace LicentaBackend.Controllers
             return Ok(cabins);
         }
 
-
         [HttpGet("search")]
-        public IActionResult Search(string location, DateTime? checkIn, DateTime? checkOut, int? guests)
+        public async Task<IActionResult> Search([FromQuery] CabinSearchResult request)
         {
-            var query = _context.Cabin.AsQueryable();
+            var results = new List<Cabin>();
+            var connectionString = _config.GetConnectionString("DefaultConnection");
 
-            if (!string.IsNullOrEmpty(location))
-                query = query.Where(c => c.Location.ToLower().Contains(location.ToLower()));
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
 
-            if (checkIn.HasValue)
+            var query = @"
+                SELECT * FROM Cabin
+                WHERE (@Location IS NULL OR Location LIKE '%' + @Location + '%')
+                  AND(@CheckIn IS NULL OR AvailableFrom IS NULL OR AvailableFrom <= @CheckIn)
+                  AND (@CheckOut IS NULL OR AvailableTo IS NULL OR AvailableTo >= @CheckOut)
+                  AND (@Guests IS NULL OR Capacity >= @Guests)
+            ";
+
+            using var command = new SqlCommand(query, connection);
+
+            command.Parameters.AddWithValue("@Location", (object?)request.Location ?? DBNull.Value);
+            command.Parameters.AddWithValue("@CheckIn", request.CheckIn.HasValue ? request.CheckIn.Value : DBNull.Value);
+            command.Parameters.AddWithValue("@CheckOut", request.CheckOut.HasValue ? request.CheckOut.Value : DBNull.Value);
+            command.Parameters.AddWithValue("@Guests", request.Guests.HasValue ? request.Guests.Value : DBNull.Value);
+
+            using var reader = await command.ExecuteReaderAsync();
+            while (await reader.ReadAsync())
             {
-                query = query.Where(c =>
-                    !c.AvailableFrom.HasValue || c.AvailableFrom <= checkIn.Value);
+                results.Add(new Cabin
+                {
+                    Id = reader.GetInt32(0),
+                    Name = reader.GetString(1),
+                    Location = reader.GetString(2),
+                    Image = reader.GetString(3),
+                    Capacity = reader.GetInt32(4),
+                    Bedrooms = reader.GetInt32(5),
+                    Price = reader.GetDecimal(6),
+                    AvailableFrom = reader.IsDBNull(7) ? null : reader.GetDateTime(7),
+                    AvailableTo = reader.IsDBNull(8) ? null : reader.GetDateTime(8),
+                    Description = reader.IsDBNull(9) ? null : reader.GetString(9),
+                    Amenities = reader.IsDBNull(10) ? null : reader.GetString(10),
+                    CheckIn = reader.IsDBNull(11) ? null : reader.GetDateTime(11),
+                    CheckOut = reader.IsDBNull(12) ? null : reader.GetDateTime(12)
+                });
             }
 
-            if (checkOut.HasValue)
-            {
-                query = query.Where(c =>
-                    !c.AvailableTo.HasValue || c.AvailableTo >= checkOut.Value);
-            }
-
-            if (guests.HasValue)
-            {
-                query = query.Where(c => c.Capacity >= guests.Value);
-            }
-
-            var results = query.ToList();
             return Ok(results);
         }
 
@@ -95,6 +118,23 @@ namespace LicentaBackend.Controllers
 
             return Ok(result);
         }
+        [HttpGet("reserved-dates/{id}")]
+        public async Task<IActionResult> GetReservedDates(int id)
+        {
+            var reservations = await _context.ReservationRequests
+                .Where(r => r.CabinId == id)
+                .Select(r => new
+                {
+                    CheckIn = r.CheckIn,
+                    CheckOut = r.CheckOut
+                })
+                .ToListAsync();
+
+            return Ok(reservations);
+        }
+
+
+
 
 
 
