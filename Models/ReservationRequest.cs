@@ -9,7 +9,6 @@ namespace LicentaBackend.Models
         public string Name { get; set; } = string.Empty;
         public string Email { get; set; } = string.Empty;
         public string Phone { get; set; } = string.Empty;
-        public string Country { get; set; } = string.Empty;
         public string Message { get; set; } = string.Empty;
         public int CabinId { get; set; }
         public string CabinName { get; set; } = string.Empty;
@@ -20,5 +19,6 @@ namespace LicentaBackend.Models
         public string? AccessPin { get; set; }
         public DateTime CheckIn { get; set; }
         public DateTime CheckOut { get; set; }
+        public decimal? TotalPrice { get; set; }
     }
 }

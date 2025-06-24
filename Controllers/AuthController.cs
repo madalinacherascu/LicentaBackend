@@ -1,8 +1,11 @@
 ﻿using LicentaBackend.DTO;
 using LicentaBackend.Filters;
 using LicentaBackend.Services;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity.Data;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
 
 namespace LicentaBackend.Controllers
 {
@@ -57,14 +60,44 @@ namespace LicentaBackend.Controllers
 
             if (user == null)
                 return Unauthorized("Email sau parolă incorectă.");
+            if (user.RememberMe != dto.RememberMe)
+            {
+                user.RememberMe = dto.RememberMe;
+                await _context.SaveChangesAsync();
+            }
 
-            
             return Ok(new
             {
                 user.Id,
                 user.Name,
-                user.Email
+                user.Email,
+                user.RememberMe
             });
         }
+        [HttpGet("user/{id}")]
+        public async Task<IActionResult> GetUserById(string id)
+        {
+            var user = await _context.Users.FindAsync(id);
+            if (user == null)
+                return NotFound();
+
+            return Ok(new
+            {
+                name = user.Name,
+                email = user.Email
+            });
+        }
+
+        //[HttpPost("forgot-password")]
+        //public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequest request)
+        //{
+        //    if (string.IsNullOrEmpty(request.Email))
+        //        return BadRequest("Emailul este obligatoriu.");
+
+        //    var result = await _authService.SendPasswordResetLinkAsync(request.Email);
+
+        //    // Nu divulgăm dacă emailul există sau nu
+        //    return Ok(new { message = "Dacă adresa există în sistem, veți primi un email cu instrucțiuni." });
+        //}
     }
 }

@@ -121,16 +121,16 @@ namespace LicentaBackend.Controllers
         [HttpGet("reserved-dates/{id}")]
         public async Task<IActionResult> GetReservedDates(int id)
         {
-            var reservations = await _context.ReservationRequests
+            var reservedDates = await _context.ReservationRequests
                 .Where(r => r.CabinId == id)
                 .Select(r => new
                 {
-                    CheckIn = r.CheckIn,
-                    CheckOut = r.CheckOut
+                    checkIn = r.CheckIn,
+                    checkOut = r.CheckOut
                 })
                 .ToListAsync();
 
-            return Ok(reservations);
+            return Ok(reservedDates);
         }
 
 
