@@ -10,6 +10,8 @@ using System.Text;
 using MailKit.Net.Smtp;
 using MailKit.Security;
 using MimeKit;
+using Microsoft.AspNetCore.Authorization;
+using System.Security.Claims;
 
 
 namespace LicentaBackend.Controllers
@@ -26,8 +28,31 @@ namespace LicentaBackend.Controllers
             _context = context;
             _emailService = emailService;
         }
-       
-        
+
+
+        [Authorize]
+        [HttpGet("me")]
+        public async Task<IActionResult> GetMyAccount()
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (userId == null) return Unauthorized();
+
+            var userGuid = Guid.Parse(userId); // ✅ corect
+
+            var user = await _context.Users
+                .FirstOrDefaultAsync(u => u.Id == userGuid); // acum e Guid == Guid
+
+
+            return Ok(new
+            {
+                user.Name,
+                user.Email,
+                user.DataNasterii,
+                user.NumarTelefon,
+                user.Nationalitate,
+                user.Adresa
+            });
+        }
 
         [HttpPost]
         public async Task<IActionResult> CreateReservation([FromBody] ReservationRequest reservation)
